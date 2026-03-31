@@ -39,7 +39,7 @@ end
 -- Slider
 Tab:CreateSlider({
     Name = "Hitbox Size",
-    Range = {1, 20},
+    Range = {1, 2000},
     Increment = 1,
     Suffix = "studs",
     CurrentValue = hitboxSize,
