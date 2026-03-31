@@ -3,130 +3,90 @@ local Players = game:GetService("Players")
 local RunService = game:GetService("RunService")
 local localPlayer = Players.LocalPlayer
 
-local hitboxSize = 6
-local enabled = true
-local espEnabled = false
-local espBoxes = {}
+local aimbotEnabled = false
+local fov = 100
+local smoothness = 0.5
 
 local Window = Rayfield:CreateWindow({
-    Name = "Hitbox Expander",
-    LoadingTitle = "Hitbox Expander",
+    Name = "Aimbot",
+    LoadingTitle = "Aimbot",
     LoadingSubtitle = "by you",
     ConfigurationSaving = {
         Enabled = true,
-        FolderName = "HitboxExpander",
+        FolderName = "Aimbot",
         FileName = "Config",
     },
 })
 
 local Tab = Window:CreateTab("Settings", 4483362458)
 
-local function createESP(player)
-    if espBoxes[player] then return end
-    local box = Instance.new("SelectionBox")
-    box.Color3 = Color3.fromRGB(255, 0, 0)
-    box.LineThickness = 0.05
-    box.SurfaceTransparency = 0.7
-    box.SurfaceColor3 = Color3.fromRGB(255, 0, 0)
-    box.Parent = workspace
-    espBoxes[player] = box
-end
+local function getClosestPlayer()
+    local closest = nil
+    local shortestDist = fov
+    local camera = workspace.CurrentCamera
 
-local function removeESP(player)
-    if espBoxes[player] then
-        espBoxes[player]:Destroy()
-        espBoxes[player] = nil
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= localPlayer and player.Character then
+            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+            local humanoid = player.Character:FindFirstChild("Humanoid")
+            if hrp and humanoid and humanoid.Health > 0 then
+                local screenPos, onScreen = camera:WorldToViewportPoint(hrp.Position)
+                if onScreen then
+                    local dist = (Vector2.new(screenPos.X, screenPos.Y) - Vector2.new(camera.ViewportSize.X / 2, camera.ViewportSize.Y / 2)).Magnitude
+                    if dist < shortestDist then
+                        shortestDist = dist
+                        closest = player
+                    end
+                end
+            end
+        end
     end
-end
-
-local function clearAllESP()
-    for player, _ in pairs(espBoxes) do
-        removeESP(player)
-    end
-end
-
-local function expandHitbox(character, size)
-    local hrp = character:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        -- use pcall in case the game blocks property changes
-        pcall(function()
-            hrp.Size = Vector3.new(size, size, size)
-            hrp.Transparency = 1
-            hrp.CanCollide = false
-        end)
-    end
+    return closest
 end
 
 RunService.Heartbeat:Connect(function()
-    for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= localPlayer then
-            local char = player.Character
-            if char then
-                if enabled then
-                    expandHitbox(char, hitboxSize)
-                end
-                if espEnabled then
-                    local hrp = char:FindFirstChild("HumanoidRootPart")
-                    if hrp then
-                        if not espBoxes[player] then
-                            createESP(player)
-                        end
-                        if espBoxes[player] then
-                            espBoxes[player].Adornee = hrp
-                        end
-                    end
-                end
-            end
+    if not aimbotEnabled then return end
+    local target = getClosestPlayer()
+    if target and target.Character then
+        local hrp = target.Character:FindFirstChild("HumanoidRootPart")
+        if hrp then
+            local camera = workspace.CurrentCamera
+            local targetCFrame = CFrame.new(camera.CFrame.Position, hrp.Position)
+            camera.CFrame = camera.CFrame:Lerp(targetCFrame, smoothness)
         end
     end
 end)
 
-Players.PlayerRemoving:Connect(function(player)
-    removeESP(player)
-end)
+Tab:CreateToggle({
+    Name = "Enable Aimbot",
+    CurrentValue = false,
+    Flag = "AimbotToggle",
+    Callback = function(Value)
+        aimbotEnabled = Value
+    end,
+})
 
 Tab:CreateSlider({
-    Name = "Hitbox Size",
-    Range = {1, 200},
+    Name = "FOV",
+    Range = {10, 500},
+    Increment = 10,
+    Suffix = "px",
+    CurrentValue = fov,
+    Flag = "AimbotFOV",
+    Callback = function(Value)
+        fov = Value
+    end,
+})
+
+Tab:CreateSlider({
+    Name = "Smoothness",
+    Range = {1, 10},
     Increment = 1,
-    Suffix = "studs",
-    CurrentValue = hitboxSize,
-    Flag = "HitboxSize",
+    Suffix = "x",
+    CurrentValue = 5,
+    Flag = "AimbotSmooth",
     Callback = function(Value)
-        hitboxSize = Value
-    end,
-})
-
-Tab:CreateToggle({
-    Name = "Enable Hitbox Expander",
-    CurrentValue = true,
-    Flag = "HitboxToggle",
-    Callback = function(Value)
-        enabled = Value
-        if not enabled then
-            for _, player in ipairs(Players:GetPlayers()) do
-                if player ~= localPlayer and player.Character then
-                    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-                    if hrp then
-                        pcall(function()
-                            hrp.Size = Vector3.new(2, 2, 1)
-                        end)
-                    end
-                end
-            end
-        end
-    end,
-})
-
-Tab:CreateToggle({
-    Name = "Hitbox ESP",
-    CurrentValue = false,
-    Flag = "HitboxESP",
-    Callback = function(Value)
-        espEnabled = Value
-        if not espEnabled then
-            clearAllESP()
-        end
+        smoothness = Value / 10
     end,
 })
 
