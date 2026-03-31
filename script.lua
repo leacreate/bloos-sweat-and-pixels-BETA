@@ -1,5 +1,6 @@
 local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
 local Players = game:GetService("Players")
+local RunService = game:GetService("RunService")
 local localPlayer = Players.LocalPlayer
 
 local hitboxSize = 6
@@ -18,7 +19,6 @@ local Window = Rayfield:CreateWindow({
 
 local Tab = Window:CreateTab("Settings", 4483362458)
 
--- Hitbox functions
 local function expandHitbox(character, size)
     local hrp = character:FindFirstChild("HumanoidRootPart")
     if hrp then
@@ -28,15 +28,16 @@ local function expandHitbox(character, size)
     end
 end
 
-local function applyToAll()
+-- Constantly reapply every frame so it never reverts
+RunService.Heartbeat:Connect(function()
+    if not enabled then return end
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= localPlayer and player.Character then
             expandHitbox(player.Character, hitboxSize)
         end
     end
-end
+end)
 
--- Slider
 Tab:CreateSlider({
     Name = "Hitbox Size",
     Range = {1, 2000},
@@ -46,22 +47,17 @@ Tab:CreateSlider({
     Flag = "HitboxSize",
     Callback = function(Value)
         hitboxSize = Value
-        if enabled then
-            applyToAll()
-        end
     end,
 })
 
--- Toggle
 Tab:CreateToggle({
     Name = "Enable Hitbox Expander",
     CurrentValue = true,
     Flag = "HitboxToggle",
     Callback = function(Value)
         enabled = Value
-        if enabled then
-            applyToAll()
-        else
+        if not enabled then
+            -- Reset hitboxes when disabled
             for _, player in ipairs(Players:GetPlayers()) do
                 if player ~= localPlayer and player.Character then
                     local hrp = player.Character:FindFirstChild("HumanoidRootPart")
@@ -74,24 +70,4 @@ Tab:CreateToggle({
     end,
 })
 
--- Player handling
-local function onPlayerAdded(player)
-    if player == localPlayer then return end
-
-    if player.Character and enabled then
-        expandHitbox(player.Character, hitboxSize)
-    end
-
-    player.CharacterAdded:Connect(function(character)
-        task.wait(0.5)
-        if enabled then
-            expandHitbox(character, hitboxSize)
-        end
-    end)
-end
-
-for _, player in ipairs(Players:GetPlayers()) do
-    onPlayerAdded(player)
-end
-
-Players.PlayerAdded:Connect(onPlayerAdded)
+Rayfield:LoadConfiguration()
