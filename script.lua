@@ -24,33 +24,39 @@ local Window = Rayfield:CreateWindow({
 local AimbotTab = Window:CreateTab("Aimbot", 4483362458)
 local ESPTab = Window:CreateTab("ESP", 4483362458)
 
--- ESP Functions
 local function createESP(player)
     if espBoxes[player] then return end
+
+    -- Box around whole character
     local box = Instance.new("SelectionBox")
     box.Color3 = Color3.fromRGB(255, 0, 0)
     box.LineThickness = 0.05
     box.SurfaceTransparency = 0.7
     box.SurfaceColor3 = Color3.fromRGB(255, 0, 0)
+    box.Adornee = player.Character -- set to whole character model
     box.Parent = workspace
     espBoxes[player] = box
 
     -- Name tag
-    local billboard = Instance.new("BillboardGui")
-    billboard.Size = UDim2.new(0, 100, 0, 40)
-    billboard.StudsOffset = Vector3.new(0, 3, 0)
-    billboard.AlwaysOnTop = true
-    billboard.Parent = workspace
-    local label = Instance.new("TextLabel")
-    label.Size = UDim2.new(1, 0, 1, 0)
-    label.BackgroundTransparency = 1
-    label.TextColor3 = Color3.fromRGB(255, 255, 255)
-    label.TextStrokeTransparency = 0
-    label.Text = player.Name
-    label.Font = Enum.Font.GothamBold
-    label.TextSize = 14
-    label.Parent = billboard
-    espNames[player] = billboard
+    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+    if hrp then
+        local billboard = Instance.new("BillboardGui")
+        billboard.Size = UDim2.new(0, 100, 0, 40)
+        billboard.StudsOffset = Vector3.new(0, 3, 0)
+        billboard.AlwaysOnTop = true
+        billboard.Adornee = hrp
+        billboard.Parent = workspace
+        local label = Instance.new("TextLabel")
+        label.Size = UDim2.new(1, 0, 1, 0)
+        label.BackgroundTransparency = 1
+        label.TextColor3 = Color3.fromRGB(255, 255, 255)
+        label.TextStrokeTransparency = 0
+        label.Text = player.Name
+        label.Font = Enum.Font.GothamBold
+        label.TextSize = 14
+        label.Parent = billboard
+        espNames[player] = billboard
+    end
 end
 
 local function removeESP(player)
@@ -70,7 +76,6 @@ local function clearAllESP()
     end
 end
 
--- Aimbot function
 local function getClosestPlayer()
     local closest = nil
     local shortestDist = fov
@@ -94,22 +99,16 @@ local function getClosestPlayer()
     return closest
 end
 
--- Main loop
 RunService.Heartbeat:Connect(function()
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= localPlayer and player.Character then
-            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-            if hrp then
-                if espEnabled then
-                    if not espBoxes[player] then
-                        createESP(player)
-                    end
-                    if espBoxes[player] then
-                        espBoxes[player].Adornee = hrp
-                    end
-                    if espNames[player] then
-                        espNames[player].Adornee = hrp
-                    end
+            if espEnabled then
+                if not espBoxes[player] then
+                    createESP(player)
+                end
+                -- Update box to follow character
+                if espBoxes[player] then
+                    espBoxes[player].Adornee = player.Character
                 end
             end
         end
@@ -132,7 +131,15 @@ Players.PlayerRemoving:Connect(function(player)
     removeESP(player)
 end)
 
--- Aimbot Tab
+-- Respawn handling
+Players.PlayerAdded:Connect(function(player)
+    player.CharacterAdded:Connect(function()
+        if espEnabled and espBoxes[player] then
+            removeESP(player)
+        end
+    end)
+end)
+
 AimbotTab:CreateToggle({
     Name = "Enable Aimbot",
     CurrentValue = false,
@@ -166,7 +173,6 @@ AimbotTab:CreateSlider({
     end,
 })
 
--- ESP Tab
 ESPTab:CreateToggle({
     Name = "Enable ESP",
     CurrentValue = false,
@@ -180,4 +186,3 @@ ESPTab:CreateToggle({
 })
 
 Rayfield:LoadConfiguration()
-
