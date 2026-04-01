@@ -7,7 +7,7 @@ local aimbotEnabled = false
 local fov = 100
 local smoothness = 0.5
 local espEnabled = false
-local espBoxes = {}
+local espHighlights = {}
 local espNames = {}
 
 local Window = Rayfield:CreateWindow({
@@ -25,17 +25,19 @@ local AimbotTab = Window:CreateTab("Aimbot", 4483362458)
 local ESPTab = Window:CreateTab("ESP", 4483362458)
 
 local function createESP(player)
-    if espBoxes[player] then return end
+    if espHighlights[player] then return end
+    if not player.Character then return end
 
-    -- Box around whole character
-    local box = Instance.new("SelectionBox")
-    box.Color3 = Color3.fromRGB(255, 0, 0)
-    box.LineThickness = 0.05
-    box.SurfaceTransparency = 0.7
-    box.SurfaceColor3 = Color3.fromRGB(255, 0, 0)
-    box.Adornee = player.Character -- set to whole character model
-    box.Parent = workspace
-    espBoxes[player] = box
+    -- Highlight covers entire character
+    local highlight = Instance.new("Highlight")
+    highlight.FillColor = Color3.fromRGB(255, 0, 0)
+    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
+    highlight.FillTransparency = 0.5
+    highlight.OutlineTransparency = 0
+    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
+    highlight.Adornee = player.Character
+    highlight.Parent = player.Character
+    espHighlights[player] = highlight
 
     -- Name tag
     local hrp = player.Character:FindFirstChild("HumanoidRootPart")
@@ -60,9 +62,9 @@ local function createESP(player)
 end
 
 local function removeESP(player)
-    if espBoxes[player] then
-        espBoxes[player]:Destroy()
-        espBoxes[player] = nil
+    if espHighlights[player] then
+        espHighlights[player]:Destroy()
+        espHighlights[player] = nil
     end
     if espNames[player] then
         espNames[player]:Destroy()
@@ -71,7 +73,7 @@ local function removeESP(player)
 end
 
 local function clearAllESP()
-    for player, _ in pairs(espBoxes) do
+    for player, _ in pairs(espHighlights) do
         removeESP(player)
     end
 end
@@ -103,12 +105,8 @@ RunService.Heartbeat:Connect(function()
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= localPlayer and player.Character then
             if espEnabled then
-                if not espBoxes[player] then
+                if not espHighlights[player] then
                     createESP(player)
-                end
-                -- Update box to follow character
-                if espBoxes[player] then
-                    espBoxes[player].Adornee = player.Character
                 end
             end
         end
@@ -131,11 +129,24 @@ Players.PlayerRemoving:Connect(function(player)
     removeESP(player)
 end)
 
--- Respawn handling
+for _, player in ipairs(Players:GetPlayers()) do
+    if player ~= localPlayer then
+        player.CharacterAdded:Connect(function()
+            if espEnabled then
+                task.wait(0.5)
+                removeESP(player)
+                createESP(player)
+            end
+        end)
+    end
+end
+
 Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function()
-        if espEnabled and espBoxes[player] then
+        if espEnabled then
+            task.wait(0.5)
             removeESP(player)
+            createESP(player)
         end
     end)
 end)
