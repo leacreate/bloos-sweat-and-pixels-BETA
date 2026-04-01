@@ -9,6 +9,7 @@ local smoothness = 0.5
 local espEnabled = false
 local spinEnabled = false
 local spinSpeed = 10
+local flingEnabled = false
 local espObjects = {}
 
 local Window = Rayfield:CreateWindow({
@@ -111,6 +112,54 @@ local function getClosestPlayer()
     return closest
 end
 
+-- Fling setup
+local flingPart = nil
+
+local function setupFling()
+    if flingPart then
+        flingPart:Destroy()
+        flingPart = nil
+    end
+    if not flingEnabled then return end
+
+    local character = localPlayer.Character
+    if not character then return end
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return end
+
+    local part = Instance.new("Part")
+    part.Size = Vector3.new(1, 1, 1)
+    part.Transparency = 1
+    part.CanCollide = true
+    part.Massless = true
+    part.CFrame = hrp.CFrame
+    part.Parent = workspace
+
+    local weld = Instance.new("WeldConstraint")
+    weld.Part0 = hrp
+    weld.Part1 = part
+    weld.Parent = part
+
+    part.Touched:Connect(function(hit)
+        if not flingEnabled then return end
+        local otherChar = hit.Parent
+        local otherHRP = otherChar:FindFirstChild("HumanoidRootPart")
+        local otherHuman = otherChar:FindFirstChild("Humanoid")
+        if otherHRP and otherHuman and otherHuman.Health > 0 then
+            local player = Players:GetPlayerFromCharacter(otherChar)
+            if player and player ~= localPlayer then
+                otherHRP.Velocity = Vector3.new(
+                    math.random(-200, 200),
+                    math.random(100, 300),
+                    math.random(-200, 200)
+                )
+            end
+        end
+    end)
+
+    flingPart = part
+end
+
 local spinAngle = 0
 
 RunService.Heartbeat:Connect(function(dt)
@@ -195,6 +244,13 @@ Players.PlayerAdded:Connect(function(player)
     end)
 end)
 
+localPlayer.CharacterAdded:Connect(function()
+    task.wait(1)
+    if flingEnabled then
+        setupFling()
+    end
+end)
+
 -- Aimbot Tab
 AimbotTab:CreateToggle({
     Name = "Enable Aimbot",
@@ -261,6 +317,16 @@ FunTab:CreateSlider({
     Flag = "SpinSpeed",
     Callback = function(Value)
         spinSpeed = Value
+    end,
+})
+
+FunTab:CreateToggle({
+    Name = "Fling On Touch",
+    CurrentValue = false,
+    Flag = "FlingToggle",
+    Callback = function(Value)
+        flingEnabled = Value
+        setupFling()
     end,
 })
 
