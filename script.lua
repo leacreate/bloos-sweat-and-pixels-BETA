@@ -6,25 +6,75 @@ local localPlayer = Players.LocalPlayer
 local aimbotEnabled = false
 local fov = 100
 local smoothness = 0.5
+local espEnabled = false
+local espBoxes = {}
+local espNames = {}
 
 local Window = Rayfield:CreateWindow({
-    Name = "Aimbot",
-    LoadingTitle = "Aimbot",
-    LoadingSubtitle = "por pukegp",
+    Name = "Fun Script",
+    LoadingTitle = "Fun Script",
+    LoadingSubtitle = "by you",
     ConfigurationSaving = {
         Enabled = true,
-        FolderName = "Aimbot",
+        FolderName = "FunScript",
         FileName = "Config",
     },
 })
 
-local Tab = Window:CreateTab("Settings", 4483362458)
+local AimbotTab = Window:CreateTab("Aimbot", 4483362458)
+local ESPTab = Window:CreateTab("ESP", 4483362458)
 
+-- ESP Functions
+local function createESP(player)
+    if espBoxes[player] then return end
+    local box = Instance.new("SelectionBox")
+    box.Color3 = Color3.fromRGB(255, 0, 0)
+    box.LineThickness = 0.05
+    box.SurfaceTransparency = 0.7
+    box.SurfaceColor3 = Color3.fromRGB(255, 0, 0)
+    box.Parent = workspace
+    espBoxes[player] = box
+
+    -- Name tag
+    local billboard = Instance.new("BillboardGui")
+    billboard.Size = UDim2.new(0, 100, 0, 40)
+    billboard.StudsOffset = Vector3.new(0, 3, 0)
+    billboard.AlwaysOnTop = true
+    billboard.Parent = workspace
+    local label = Instance.new("TextLabel")
+    label.Size = UDim2.new(1, 0, 1, 0)
+    label.BackgroundTransparency = 1
+    label.TextColor3 = Color3.fromRGB(255, 255, 255)
+    label.TextStrokeTransparency = 0
+    label.Text = player.Name
+    label.Font = Enum.Font.GothamBold
+    label.TextSize = 14
+    label.Parent = billboard
+    espNames[player] = billboard
+end
+
+local function removeESP(player)
+    if espBoxes[player] then
+        espBoxes[player]:Destroy()
+        espBoxes[player] = nil
+    end
+    if espNames[player] then
+        espNames[player]:Destroy()
+        espNames[player] = nil
+    end
+end
+
+local function clearAllESP()
+    for player, _ in pairs(espBoxes) do
+        removeESP(player)
+    end
+end
+
+-- Aimbot function
 local function getClosestPlayer()
     local closest = nil
     local shortestDist = fov
     local camera = workspace.CurrentCamera
-
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= localPlayer and player.Character then
             local hrp = player.Character:FindFirstChild("HumanoidRootPart")
@@ -44,20 +94,46 @@ local function getClosestPlayer()
     return closest
 end
 
+-- Main loop
 RunService.Heartbeat:Connect(function()
-    if not aimbotEnabled then return end
-    local target = getClosestPlayer()
-    if target and target.Character then
-        local hrp = target.Character:FindFirstChild("HumanoidRootPart")
-        if hrp then
-            local camera = workspace.CurrentCamera
-            local targetCFrame = CFrame.new(camera.CFrame.Position, hrp.Position)
-            camera.CFrame = camera.CFrame:Lerp(targetCFrame, smoothness)
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player ~= localPlayer and player.Character then
+            local hrp = player.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                if espEnabled then
+                    if not espBoxes[player] then
+                        createESP(player)
+                    end
+                    if espBoxes[player] then
+                        espBoxes[player].Adornee = hrp
+                    end
+                    if espNames[player] then
+                        espNames[player].Adornee = hrp
+                    end
+                end
+            end
+        end
+    end
+
+    if aimbotEnabled then
+        local target = getClosestPlayer()
+        if target and target.Character then
+            local hrp = target.Character:FindFirstChild("HumanoidRootPart")
+            if hrp then
+                local camera = workspace.CurrentCamera
+                local targetCFrame = CFrame.new(camera.CFrame.Position, hrp.Position)
+                camera.CFrame = camera.CFrame:Lerp(targetCFrame, smoothness)
+            end
         end
     end
 end)
 
-Tab:CreateToggle({
+Players.PlayerRemoving:Connect(function(player)
+    removeESP(player)
+end)
+
+-- Aimbot Tab
+AimbotTab:CreateToggle({
     Name = "Enable Aimbot",
     CurrentValue = false,
     Flag = "AimbotToggle",
@@ -66,7 +142,7 @@ Tab:CreateToggle({
     end,
 })
 
-Tab:CreateSlider({
+AimbotTab:CreateSlider({
     Name = "FOV",
     Range = {10, 500},
     Increment = 10,
@@ -78,7 +154,7 @@ Tab:CreateSlider({
     end,
 })
 
-Tab:CreateSlider({
+AimbotTab:CreateSlider({
     Name = "Smoothness",
     Range = {1, 10},
     Increment = 1,
@@ -90,4 +166,18 @@ Tab:CreateSlider({
     end,
 })
 
+-- ESP Tab
+ESPTab:CreateToggle({
+    Name = "Enable ESP",
+    CurrentValue = false,
+    Flag = "ESPToggle",
+    Callback = function(Value)
+        espEnabled = Value
+        if not espEnabled then
+            clearAllESP()
+        end
+    end,
+})
+
 Rayfield:LoadConfiguration()
+
