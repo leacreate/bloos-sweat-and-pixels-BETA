@@ -142,6 +142,11 @@ local function setupFling()
 
     part.Touched:Connect(function(hit)
         if not flingEnabled then return end
+
+        -- Ignore your own character parts
+        local character = localPlayer.Character
+        if character and hit:IsDescendantOf(character) then return end
+
         local otherChar = hit.Parent
         local otherHRP = otherChar:FindFirstChild("HumanoidRootPart")
         local otherHuman = otherChar:FindFirstChild("Humanoid")
@@ -162,7 +167,7 @@ end
 
 local spinAngle = 0
 
-RunService.Heartbeat:Connect(function(dt)
+RunService.Heartbeat:Connect(function()
     -- Spinbot
     if spinEnabled then
         spinAngle = spinAngle + spinSpeed
