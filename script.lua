@@ -7,8 +7,7 @@ local aimbotEnabled = false
 local fov = 100
 local smoothness = 0.5
 local espEnabled = false
-local espHighlights = {}
-local espNames = {}
+local espObjects = {}
 
 local Window = Rayfield:CreateWindow({
     Name = "Fun Script",
@@ -24,58 +23,72 @@ local Window = Rayfield:CreateWindow({
 local AimbotTab = Window:CreateTab("Aimbot", 4483362458)
 local ESPTab = Window:CreateTab("ESP", 4483362458)
 
-local function createESP(player)
-    if espHighlights[player] then return end
-    if not player.Character then return end
-
-    -- Highlight covers entire character
-    local highlight = Instance.new("Highlight")
-    highlight.FillColor = Color3.fromRGB(255, 0, 0)
-    highlight.OutlineColor = Color3.fromRGB(255, 255, 255)
-    highlight.FillTransparency = 0.5
-    highlight.OutlineTransparency = 0
-    highlight.DepthMode = Enum.HighlightDepthMode.AlwaysOnTop
-    highlight.Adornee = player.Character
-    highlight.Parent = player.Character
-    espHighlights[player] = highlight
-
-    -- Name tag
-    local hrp = player.Character:FindFirstChild("HumanoidRootPart")
-    if hrp then
-        local billboard = Instance.new("BillboardGui")
-        billboard.Size = UDim2.new(0, 100, 0, 40)
-        billboard.StudsOffset = Vector3.new(0, 3, 0)
-        billboard.AlwaysOnTop = true
-        billboard.Adornee = hrp
-        billboard.Parent = workspace
-        local label = Instance.new("TextLabel")
-        label.Size = UDim2.new(1, 0, 1, 0)
-        label.BackgroundTransparency = 1
-        label.TextColor3 = Color3.fromRGB(255, 255, 255)
-        label.TextStrokeTransparency = 0
-        label.Text = player.Name
-        label.Font = Enum.Font.GothamBold
-        label.TextSize = 14
-        label.Parent = billboard
-        espNames[player] = billboard
+local function createBox()
+    local lines = {}
+    for i = 1, 4 do
+        local line = Drawing.new("Line")
+        line.Thickness = 2
+        line.Color = Color3.fromRGB(255, 0, 0)
+        line.Transparency = 1
+        line.Visible = false
+        table.insert(lines, line)
     end
+    return lines
+end
+
+local function createLabel()
+    local label = Drawing.new("Text")
+    label.Size = 14
+    label.Color = Color3.fromRGB(255, 255, 255)
+    label.Outline = true
+    label.Visible = false
+    return label
 end
 
 local function removeESP(player)
-    if espHighlights[player] then
-        espHighlights[player]:Destroy()
-        espHighlights[player] = nil
-    end
-    if espNames[player] then
-        espNames[player]:Destroy()
-        espNames[player] = nil
+    if espObjects[player] then
+        for _, line in ipairs(espObjects[player].box) do
+            line:Remove()
+        end
+        espObjects[player].label:Remove()
+        espObjects[player] = nil
     end
 end
 
 local function clearAllESP()
-    for player, _ in pairs(espHighlights) do
+    for player in pairs(espObjects) do
         removeESP(player)
     end
+end
+
+local function getCorners(character)
+    local hrp = character:FindFirstChild("HumanoidRootPart")
+    if not hrp then return nil end
+
+    local camera = workspace.CurrentCamera
+    local size = character:GetExtentsSize()
+
+    local topPos = hrp.Position + Vector3.new(0, size.Y / 2, 0)
+    local botPos = hrp.Position - Vector3.new(0, size.Y / 2, 0)
+
+    local top, topVis = camera:WorldToViewportPoint(topPos)
+    local bot, botVis = camera:WorldToViewportPoint(botPos)
+
+    if not topVis and not botVis then return nil end
+
+    local height = math.abs(top.Y - bot.Y)
+    local width = height * 0.6
+
+    local x = top.X
+    local y = top.Y
+
+    return {
+        topLeft     = Vector2.new(x - width / 2, y),
+        topRight    = Vector2.new(x + width / 2, y),
+        bottomLeft  = Vector2.new(x - width / 2, y + height),
+        bottomRight = Vector2.new(x + width / 2, y + height),
+        top         = Vector2.new(x, y - 15),
+    }
 end
 
 local function getClosestPlayer()
@@ -105,8 +118,49 @@ RunService.Heartbeat:Connect(function()
     for _, player in ipairs(Players:GetPlayers()) do
         if player ~= localPlayer and player.Character then
             if espEnabled then
-                if not espHighlights[player] then
-                    createESP(player)
+                if not espObjects[player] then
+                    espObjects[player] = {
+                        box = createBox(),
+                        label = createLabel()
+                    }
+                end
+
+                local corners = getCorners(player.Character)
+                local obj = espObjects[player]
+
+                if corners then
+                    -- Top line
+                    obj.box[1].From = corners.topLeft
+                    obj.box[1].To = corners.topRight
+                    obj.box[1].Visible = true
+                    -- Bottom line
+                    obj.box[2].From = corners.bottomLeft
+                    obj.box[2].To = corners.bottomRight
+                    obj.box[2].Visible = true
+                    -- Left line
+                    obj.box[3].From = corners.topLeft
+                    obj.box[3].To = corners.bottomLeft
+                    obj.box[3].Visible = true
+                    -- Right line
+                    obj.box[4].From = corners.topRight
+                    obj.box[4].To = corners.bottomRight
+                    obj.box[4].Visible = true
+                    -- Name label
+                    obj.label.Text = player.Name
+                    obj.label.Position = corners.top
+                    obj.label.Visible = true
+                else
+                    for _, line in ipairs(obj.box) do
+                        line.Visible = false
+                    end
+                    obj.label.Visible = false
+                end
+            else
+                if espObjects[player] then
+                    for _, line in ipairs(espObjects[player].box) do
+                        line.Visible = false
+                    end
+                    espObjects[player].label.Visible = false
                 end
             end
         end
@@ -129,25 +183,9 @@ Players.PlayerRemoving:Connect(function(player)
     removeESP(player)
 end)
 
-for _, player in ipairs(Players:GetPlayers()) do
-    if player ~= localPlayer then
-        player.CharacterAdded:Connect(function()
-            if espEnabled then
-                task.wait(0.5)
-                removeESP(player)
-                createESP(player)
-            end
-        end)
-    end
-end
-
 Players.PlayerAdded:Connect(function(player)
     player.CharacterAdded:Connect(function()
-        if espEnabled then
-            task.wait(0.5)
-            removeESP(player)
-            createESP(player)
-        end
+        removeESP(player)
     end)
 end)
 
